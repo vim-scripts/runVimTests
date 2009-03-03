@@ -1,6 +1,7 @@
 " vimtest.vim: General utility functions for the runVimTests testing framework. 
 "
 " DEPENDENCIES:
+"   - Requires VIM 7.0 or higher.  
 "   - escapings.vim autoload script (for VIM 7.0/7.1). 
 "
 " Copyright: (C) 2009 by Ingo Karkat

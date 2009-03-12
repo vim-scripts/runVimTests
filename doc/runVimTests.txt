@@ -390,21 +390,27 @@ KNOWN PROBLEMS					  runVimTests-known-problems
 ==============================================================================
 TODO							    *runVimTests-todo*
 
-- Implemented skipping of tests (via special message in *.msgout and by
-  parsing TAP output). 
 - Store failed tests in lastfailed.suite and add option --lastfailed to
   re-run. 
 
 IDEAS							   *runVimTests-ideas*
 - Replace the bash / Windows shell scripts with a cross-platform (Perl, Ruby?)
   script once it becomes too unwieldy. (Many will argue it already did.)
+- Do we also need a TODO signal (and vimtest#Todo...() functions)? 
 
 ==============================================================================
 HISTORY							 *runVimTests-history*
 
+1.11	12-Mar-2009
+- TAP output is now parsed for SKIP and TODO directives, and the "Bail out"
+  message. 
+- TODO TAP tests are included in the test output like failing tests. 
+
 1.10	10-Mar-2009
 - runVimTests drivers now also count test files (*.vim). 
-- ENH: Message output is now parsed for signals to this test driver.
+- Implemented skipping of tests via special message in *.msgout; not yet in
+  TAP output. 
+- ENH: Message output is now parsed for signals to the test driver.
   Implemented signals: BAILOUT!, ERROR, SKIP, SKIP(out), SKIP(msgout),
   SKIP(tap). 
 

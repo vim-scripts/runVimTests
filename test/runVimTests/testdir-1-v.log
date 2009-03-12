@@ -46,6 +46,32 @@ This should be in here!			This should be in here!
 1..1
 ok 1 - all right
 
+tapSkip001: Test skipping of some TAP tests. 
+1..6
+ok 1 - all right
+ok 2 # SKIP need different arithmetics
+ok 3 # SKIP need different arithmetics
+ok 4 - 1 == 1
+ok 5 # SKIP need a miracle
+ok 6 - matches
+
+tapSkip002: Test skipping all TAP tests by announcing this in the plan. 
+1..0
+
+tapTodo001: Test Todo of some TAP tests. 
+1..7
+ok 1 - all right
+not ok 2 # TODO 1 == 2
+# Test '1 == 2' failed:
+# expected: '2'
+# but got:  '1'
+ok 3 # TODO 2 == 2
+ok 4 - 1 == 1
+ok 5 # TODO not yet implemented
+# We will implement this one soon.
+not ok 6 # TODO not right
+ok 7 - matches
+
 test001: Test successful saved buffer output. 
 OK (out)
 
@@ -183,8 +209,9 @@ OK (msgout)
 zzzSignalBailout001: Test bailout signal to test driver. 
 BAIL OUT: It's so f...ed up!
 
-30 files with 75 tests (aborted); 12 skipped, 56 run: 41 OK, 15 failures, 12 errors.
-Skipped tests: signalSkip001, signalSkip005, signalSkip006
-Tests with skips: signalSkip002, signalSkip003, signalSkip004
+33 files with 89 tests (aborted); 16 skipped, 66 run: 47 OK, 15 failures, 12 errors, 4 TODO.
+Skipped tests: signalSkip001, signalSkip005, signalSkip006, tapSkip002
+Tests with skips: signalSkip002, signalSkip003, signalSkip004, tapSkip001
 Failed tests: signalSkip007, test002, test012, test014, test022, test024, test032, test033
 Tests with errors: signalError001, test003, test013, test023, test024, test033, zzzSignalBailout001
+TODO tests: tapTodo001

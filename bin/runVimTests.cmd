@@ -20,6 +20,14 @@
 ::   The VIM LICENSE applies to this script; see 'vim -c ":help copyright"'.  
 ::
 ::* REVISION	DATE		REMARKS 
+::  1.11.021	12-Mar-2009	ENH: TODO tests are reported in test summary. 
+::				ENH: TAP output is also parsed for bail out
+::				message. 
+::  1.11.020	12-Mar-2009	ENH: TAP output is now parsed for # SKIP and #
+::				TODO directives. The entire TAP test is skipped
+::				if a 1..0 plan is announced. Non-verbose TAP
+::				output now also includes succeeding TODO tests
+::				and any details in the lines following it. 
 ::  1.10.019	06-Mar-2009	ENH: Also counting test files. 
 ::				ENH: Message output is now parsed for signals to
 ::				this test driver. Implemented signals: BAILOUT!,
@@ -284,10 +292,12 @@ set /A cntOk=0
 set /A cntSkip=0
 set /A cntFail=0
 set /A cntError=0
+set /A cntTodo=0
 set listSkipped=
 set listSkips=
 set listFailed=
 set listError=
+set listTodo=
 
 %EXECUTIONOUTPUT% echo.
 if defined vimArguments (
@@ -304,17 +314,19 @@ if defined isBailOut (goto:commandLineLoopEnd)
 if not "%~1" == "" (goto:commandLineLoop)
 
 :commandLineLoopEnd
-if %cntTestFiles% NEQ 1 set pluralTestFiles=s
-if %cntTests% NEQ 1 set pluralTests=s
-if %cntFail% NEQ 1 set pluralFail=s
-if %cntError% NEQ 1 set pluralError=s
-if defined isBailOut set bailOutNotification= ^(aborted^)
+set pluralTestFiles=& if %cntTestFiles%	NEQ 1 set pluralTestFiles=s
+set pluralTests=&     if %cntTests%	NEQ 1 set pluralTests=s
+set pluralFail=&      if %cntFail%	NEQ 1 set pluralFail=s
+set pluralError=&     if %cntError%	NEQ 1 set pluralError=s
+set todoNotification=& if %cntTodo% GEQ 1 set todoNotification=, %cntTodo% TODO
+set bailOutNotification=& if defined isBailOut set bailOutNotification= ^(aborted^)
 echo.
-echo.%cntTestFiles% file%pluralTestFiles% with %cntTests% test%pluralTests%%bailOutNotification%; %cntSkip% skipped, %cntRun% run: %cntOk% OK, %cntFail% failure%pluralFail%, %cntError% error%pluralError%.
+echo.%cntTestFiles% file%pluralTestFiles% with %cntTests% test%pluralTests%%bailOutNotification%; %cntSkip% skipped, %cntRun% run: %cntOk% OK, %cntFail% failure%pluralFail%, %cntError% error%pluralError%%todoNotification%.
 if defined listSkipped (echo.Skipped tests: %listSkipped:~0,-2%)
 if defined listSkips (echo.Tests with skips: %listSkips:~0,-2%)
 if defined listFailed (echo.Failed tests: %listFailed:~0,-2%)
 if defined listError (echo.Tests with errors: %listError:~0,-2%)
+if defined listTodo (echo.TODO tests: %listTodo:~0,-2%)
 
 set /A cntAllProblems=%cntError% + %cntFail%
 if %cntAllProblems% NEQ 0 (exit /B 1)
@@ -424,6 +436,9 @@ echo.%listFailed% | findstr /C:%1 >NUL || set listFailed=%listFailed%%~1,
 (goto:EOF)
 :addToListError
 echo.%listError% | findstr /C:%1 >NUL || set listError=%listError%%~1, 
+(goto:EOF)
+:addToListTodo
+echo.%listTodo% | findstr /C:%1 >NUL || set listTodo=%listTodo%%~1, 
 (goto:EOF)
 
 :echoOk
@@ -561,6 +576,7 @@ set /A thisOk=0
 set /A thisSkip=0
 set /A thisFail=0
 set /A thisError=0
+set /A thisTodo=0
 
 set isSkipOut=
 set isSkipMsgout=
@@ -643,6 +659,10 @@ if %thisFail% GEQ 1 (
 if %thisError% GEQ 1 (
     set /A cntError+=%thisError%
     call :addToListError "%testName%"
+)
+if %thisTodo% GEQ 1 (
+    set /A cntTodo+=%thisTodo%
+    call :addToListTodo "%testName%"
 )
 popd
 (goto:EOF)
@@ -734,37 +754,100 @@ call :printTestHeader "%testFile%" "%testName%"
 (goto:EOF)
 
 :parseTapLine
+:: Ignore all further TAP output after a bail out. 
+if defined isBailOut (goto:EOF)
+
 if "%~1" == "ok" (
-    set /A thisOk+=1
-    set /A thisRun+=1
+    if /I "%~2 %~3" == "# SKIP" (
+	set /A thisSkip+=1
+    ) else if /I "%~3 %~4" == "# SKIP" (
+	set /A thisSkip+=1
+    ) else if /I "%~2 %~3" == "# TODO" (
+	set /A thisTodo+=1
+	set /A thisRun+=1
+	set tapTestIsPrintTapOutput=true
+    ) else if /I "%~3 %~4" == "# TODO" (
+	set /A thisTodo+=1
+	set /A thisRun+=1
+	set tapTestIsPrintTapOutput=true
+    ) else (
+	set /A thisOk+=1
+	set /A thisRun+=1
+    )
     set /A tapTestCnt+=1
     (goto:EOF)
 )
 if "%~1 %~2" == "not ok" (
-    set /A thisFail+=1
-    set /A thisRun+=1
+    if /I "%~3 %~4" == "# SKIP" (
+	set /A thisSkip+=1
+    ) else if /I "%~4 %~5" == "# SKIP" (
+	set /A thisSkip+=1
+    ) else if /I "%~3 %~4" == "# TODO" (
+	set /A thisTodo+=1
+	set /A thisRun+=1
+	set tapTestIsPrintTapOutput=true
+    ) else if /I "%~4 %~5" == "# TODO" (
+	set /A thisTodo+=1
+	set /A thisRun+=1
+	set tapTestIsPrintTapOutput=true
+    ) else (
+	set /A thisFail+=1
+	set /A thisRun+=1
+	set tapTestIsPrintTapOutput=true
+    )
     set /A tapTestCnt+=1
-    set tapTestIsFailures=true
     (goto:EOF)
 )
+
+:: Handle bail out. 
+if "%~1 %~2" == "Bail out!" (
+    set isBailOut=true
+    set /A thisError+=1
+    (goto:EOF)
+)
+
+:: Ignore all other TAP output unless it's a plan. 
 echo.%~1|grep -q -e "^[0-9][0-9]*\.\.[0-9][0-9]*$" || (goto:EOF)
+:: No tests planned means the TAP test is skipped completely. 
+if "%~1" == "1..0" (
+    set /A thisTests+=1
+    set /A thisSkip+=1
+    (goto:EOF)
+)
+:: Extract the number of planned tests. 
 for /F "tokens=1,2 delims=." %%a in ("%~1") do set /A tapTestNum=%%b - %%a + 1
 (goto:EOF)
 
 :parseTapOutput
 set tapTestNum=
 set /A tapTestCnt=0
-set tapTestIsFailures=
-for /F "eol=# tokens=1-3 delims= " %%i in (%~1) do call :parseTapLine "%%i" "%%j" "%%k" %2
-:: Print the entire TAP output if in verbose mode, else only print the failed
-:: TAP test plus any failure details in the lines following it. 
+set tapTestIsPrintTapOutput=
+for /F "eol=# tokens=1-5 delims= " %%i in (%~1) do call :parseTapLine "%%i" "%%j" "%%k" "%%l" "%%m"
+:: Print the entire TAP output if in verbose mode, else only print 
+:: - failed tests
+:: - successful TODO tests
+:: - bail out message
+:: plus any details in the lines following it. 
+:: (But truncate any additional TAP output after a bail out.)
+set tapPrintTapOutputSedPattern=^^not ok\^|^^ok \([0-9]\+ \)\?# [tT][oO][dD][oO]\^|^^Bail out!
 if %verboseLevel% GTR 0 (
     %EXECUTIONOUTPUT% type "%~1"
 ) else (
-    if defined tapTestIsFailures (
+    if defined tapTestIsPrintTapOutput (
 	call :printTestHeader "%testFile%" "%testName%"
     )
-    %EXECUTIONOUTPUT% type "%~1" | sed -n -e "${/^#/H;x;/^not ok/p}" -e "/^not ok/{x;/^not ok/p;b}" -e "/^#/{H;b}" -e "x;/^not ok/p"
+    %EXECUTIONOUTPUT% type "%~1" | sed -n -e "${/^#/H;x;/%tapPrintTapOutputSedPattern%/p}" -e "/%tapPrintTapOutputSedPattern%/{x;/%tapPrintTapOutputSedPattern%/p;b}" -e "/^#/{H;b}" -e "x;/%tapPrintTapOutputSedPattern%/p" -e "/^Bail out!/q"
+)
+
+:: If this TAP test has bailed out, return the number of tests run so far, but
+:: at least one (to avoid the "no test results" error). 
+if defined isBailOut (
+    if %tapTestCnt% EQU 0 (
+	set /A thisTests+=1
+    ) else (
+	set /A thisTests+=%tapTestCnt%
+    )
+    (goto:EOF)
 )
 
 if not defined tapTestNum (

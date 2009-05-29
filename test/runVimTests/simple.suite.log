@@ -1,5 +1,5 @@
 
-Starting test run with these VIM options:
+Starting test run with these Vim options:
 vim -f -es --cmd "let g:runVimTests='user'"
 
 test002: Test failed saved buffer output. 

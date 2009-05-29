@@ -3,6 +3,9 @@
 "
 " DEPENDENCIES:
 "   - Requires VIM 7.2 or higher.  
+"     (Some bug in lower patch levels of VIM 7.1 causes a second message
+"     condition to not match if a previous message condition matched the message
+"     directly above; i.e. matches eat the following message, too.) 
 "
 " Copyright: (C) 2009 by Ingo Karkat
 "   The VIM LICENSE applies to this script; see ':help copyright'. 

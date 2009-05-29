@@ -8,23 +8,28 @@
 #
 ###############################################################################
 # CONTENTS: 
-#   This script implements a testing framework for VIM. 
+#   This script implements a testing framework for Vim. 
 #   
 # REMARKS: 
 #   
 # DEPENDENCIES:
-#   - Requires bash 3.0 or higher. 
+#   - Requires Bash 3.0 or higher. 
+#   - GNU diff, grep, sed, sort, uniq. 
 #   - runVimMsgFilter.vim, located in this script's directory. 
 #
 # Copyright: (C) 2009 by Ingo Karkat
 #   The VIM LICENSE applies to this script; see 'vim -c ":help copyright"'.  
 #
-# FILE_SCCS = "@(#)runVimTests.sh	1.12.010	(14-Mar-2009)	runVimTests";
+# FILE_SCCS = "@(#)runVimTests.sh	1.13.011	(28-May-2009)	runVimTests";
 #
 # REVISION	DATE		REMARKS 
+#   1.13.011	28-May-2009	ENH: Now including SKIP reasons in the summary
+#				(identical reasons are condensed and counted)
+#				when not running with verbose output. I always
+#				wanted to know why certain tests were skipped. 
 #   1.12.010	14-Mar-2009	Added quoting of regexp in addToList(), which is
-#				needed in bash 3.0 and 3.1. 
-#				Now checking bash version. 
+#				needed in Bash 3.0 and 3.1. 
+#				Now checking Bash version. 
 #				Only exiting with exit code 1 in case of test
 #				failures; using code 2 for invocation errors
 #				(i.e. wrong command-line arguments) or
@@ -62,7 +67,7 @@
 #	004	24-Feb-2009	Added short options -0/1/2 for the plugin load
 #				level. 
 #	003	19-Feb-2009	Added explicit option '--user' for the default
-#				VIM mode, and adding 'user' to
+#				Vim mode, and adding 'user' to
 #				%vimVariableOptionsValue% (so that tests can
 #				easily check for that mode). Command-line
 #				argument parsing now ensures that only one mode
@@ -72,17 +77,20 @@
 ###############################################################################
 
 # Enable extended file pattern matching operators from ksh
-# (?(pattern-list), !(pattern-list), ...) in bash. 
+# (?(pattern-list), !(pattern-list), ...) in Bash. 
 shopt -qs extglob
 
 initialize()
 {
-    [ ${BASH_VERSINFO[0]} -ge 3 ] || { echo >&2 "ERROR: This script requires bash 3.0 or higher!"; exit 2; }
+    [ ${BASH_VERSINFO[0]} -ge 3 ] || { echo >&2 "ERROR: This script requires Bash 3.0 or higher!"; exit 2; }
 
     readonly scriptDir=$(readonly scriptFile="$(type -P -- "$0")" && dirname -- "$scriptFile" || exit 3)
     [ -d "$scriptDir" ] || { echo >&2 "ERROR: Cannot determine script directory!"; exit 3; } 
 
-    # Prerequisite VIM script to match the message assumptions against the actual
+    skipsRecord=${TEMP:-/tmp}/skipsRecord.txt.$$
+    [ -f "$skipsRecord" ] && { rm -- "$skipsRecord" || skipsRecord=; }
+
+    # Prerequisite Vim script to match the message assumptions against the actual
     # message output. 
     readonly runVimMsgFilterScript=${scriptDir}/runVimMsgFilter.vim
     if [ ! -r "$runVimMsgFilterScript" ]; then
@@ -90,18 +98,18 @@ initialize()
 	exit 2
     fi
 
-    # VIM variables set by the test framework. 
+    # Vim variables set by the test framework. 
     readonly vimVariableOptionsName=g:runVimTests
     vimVariableOptionsValue=
     readonly vimVariableTestName=g:runVimTest
 
-    # VIM mode of sourcing scripts. 
+    # Vim mode of sourcing scripts. 
     vimMode=
 
-    # Default VIM executable. 
+    # Default Vim executable. 
     vimExecutable='vim'
 
-    # Default VIM command-line arguments. 
+    # Default Vim command-line arguments. 
     #
     # Always wait for the edit session to finish (only applies to the GUI
     # version, is ignored for the terminal version), so that this script can
@@ -110,7 +118,7 @@ initialize()
 
     # Use silent-batch mode (-es) when the test log is not printed to stdout (but
     # redirected into a file or pipe). This avoids that the output is littered with
-    # escape sequences and suppresses the VIM warning and a small delay:
+    # escape sequences and suppresses the Vim warning and a small delay:
     # "Vim: Warning: Output is not to a terminal".
     # (Just passing '-T dumb' is not enough.)
     [ -t 1 ] || vimArguments="$vimArguments -es"
@@ -151,29 +159,29 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument. 
     # It is printed to stdout to allow paging with 'more'. 
     cat <<HELPDESCRIPTION
-A testing framework for VIM. 
+A testing framework for Vim. 
 HELPDESCRIPTION
     echo
     printShortUsage
     cat <<HELPTEXT
-    -0|--pure		Start VIM without loading .vimrc and plugins, but in
+    -0|--pure		Start Vim without loading .vimrc and plugins, but in
 			nocompatible mode. Adds 'pure' to ${vimVariableOptionsName}.
-    -1|--default	Start VIM only with default settings and plugins,
+    -1|--default	Start Vim only with default settings and plugins,
 			without loading user .vimrc and plugins.
 			Adds 'default' to ${vimVariableOptionsName}.
-    -2|--user		(Default:) Start VIM with user .vimrc and plugins.
+    -2|--user		(Default:) Start Vim with user .vimrc and plugins.
     --source filespec	Source filespec before test execution.
     --runtime filespec	Source filespec relative to ~/.vim. Can be used to
 			load the script-under-test when using --pure.
-    --vimexecutable	Use passed VIM executable instead of the one
+    --vimexecutable	Use passed Vim executable instead of the one
 	path/to/vim	found in \$PATH.
-    -g|--graphical	Use GUI version of VIM.
+    -g|--graphical	Use GUI version of Vim.
     --summaryonly	Do not show detailed transcript and differences, during
 			test run, only summary. 
     -v^|--verbose	Show passed tests and more details during test
 			execution.
     -d|--debug		Test debugging mode: Adds 'debug' to ${vimVariableOptionsName}
-			variable inside VIM (so that tests do not exit or can
+			variable inside Vim (so that tests do not exit or can
 			produce additional debug info).
 HELPTEXT
 }
@@ -186,6 +194,11 @@ echoOk()
 {
     [ "$isExecutionOutput" -a $verboseLevel -gt 0 ] && echo "OK ($1)"
 }
+echoStatusForced()
+{
+    local -r status="${1}${2:+ (}${2}${2:+)}"
+    echo "${status}${3:+: }$3"
+}
 echoStatus()
 # $1 status
 # $2 method (or empty)
@@ -193,13 +206,14 @@ echoStatus()
 {
     printTestHeader "$testFile" "$testName"
     if [ "$isExecutionOutput" ]; then
-	typeset -r status="${1}${2:+ (}${2}${2:+)}"
-	echo "${status}${3:+: }$3"
+	echoStatusForced "$@"
     fi
 }
 echoSkip()
 {
-    [ "$isExecutionOutput" -a $verboseLevel -gt 0 ] && echoStatus "SKIP" "${1:5:${#1}-6}" "$2"
+    local -r skipMethod=${1:5:${#1}-6}
+    [ "$skipsRecord" ] && echoStatusForced "SKIP" "$skipMethod" "$2" >> "$skipsRecord"
+    [ "$isExecutionOutput" -a $verboseLevel -gt 0 ] && echoStatus "SKIP" "$skipMethod" "$2"
 }
 echoError()
 {
@@ -209,6 +223,13 @@ echoFail()
 {
     echoStatus 'FAIL' "$@"
 }
+listSkipReasons()
+{
+    [ ! "$skipsRecord" -o $cntSkip -eq 0 -o ! -f "$skipsRecord" ] && return
+    sort '--ignore-case' -- "$skipsRecord" | uniq '--ignore-case' --count
+    case "$DEBUG" in *skipsRecord*) ;; *) rm -- "$skipsRecord";; esac
+}
+
 makePlural()
 {
     if [ $1 -eq 1 ]; then
@@ -219,9 +240,9 @@ makePlural()
 }
 vimSourceCommand()
 {
-    # Note: With -S {file}, VIM wants {file} escaped for Ex commands. (It should
+    # Note: With -S {file}, Vim wants {file} escaped for Ex commands. (It should
     # really escape {file} itself, as it does for normal {file} arguments.)
-    # As we don't know the VIM version, we cannot work around this via
+    # As we don't know the Vim version, we cannot work around this via
     #	-c "execute 'source' fnameescape('${testfile}')"
     # Thus, we just escape spaces and hope that no other special string (like %,
     # # or <cword>) is part of a test filename. 
@@ -244,8 +265,8 @@ processTestEntry()
 
 runSuite()
 {
-    typeset -r suiteDir=$(dirname -- "$1")
-    typeset -r suiteFilename=$(basename -- "$1")
+    local -r suiteDir=$(dirname -- "$1")
+    local -r suiteFilename=$(basename -- "$1")
 
     # Change to suite directory so that relative paths and filenames are
     # resolved correctly. 
@@ -348,7 +369,7 @@ parseMessageOutputForSignals()
 	return
     fi
 
-    # VIM doesn't put a final newline at the end of the last written message.
+    # Vim doesn't put a final newline at the end of the last written message.
     # This incomplete last line is in turn not processed by 'read'. Fix this by
     # appending a final newline. 
     echo >> "$testMsgout"
@@ -383,7 +404,7 @@ compareOutput()
 }
 compareMessages()
 {
-    typeset -r testMsgresult="${3}.msgresult"
+    local -r testMsgresult="${3}.msgresult"
     [ -f "$testMsgresult" ] && rm "$testMsgresult"
 
     # Use silent-batch mode (-es) to match the message assumptions against the
@@ -395,7 +416,7 @@ compareMessages()
 	echoError 'msgout' 'Evaluation of test messages failed.'
 	return
     fi
-    typeset -r evaluationResult=$(sed -n '1s/^\([A-Z][A-Z]*\).*/\1/p' -- "$testMsgresult")
+    local -r evaluationResult=$(sed -n '1s/^\([A-Z][A-Z]*\).*/\1/p' -- "$testMsgresult")
     local isPrintEvaluation='true'
     case "$evaluationResult" in
 	OK)	let thisOk+=1
@@ -411,6 +432,11 @@ compareMessages()
 	printTestHeader "$testFile" "$testName"
 	cat -- "$testMsgresult"
     fi
+}
+recordTapSkip()
+{
+    local -r skipReason=${1#*[sS][kK][iI][pP]}
+    [ "$skipsRecord" ] && echo "SKIP (tap): ${skipReason##+( )}" >> "$skipsRecord"
 }
 parseTapOutput()
 {
@@ -428,6 +454,7 @@ parseTapOutput()
 		;;
 	    ok\ ?(+([0-9])\ )\#\ [sS][kK][iI][pP]*)
 		let thisSkip+=1 	   tapTestCnt+=1
+		recordTapSkip "$tapLine"
 		;;
 	    ok\ ?(+([0-9])\ )\#\ [tT][oO][dD][oO]*)
 		let thisTodo+=1 thisRun+=1 tapTestCnt+=1; tapTestIsPrintTapOutput='true'
@@ -437,6 +464,7 @@ parseTapOutput()
 		;;
 	    not\ ok\ ?(+([0-9])\ )\#\ [sS][kK][iI][pP]*)
 		let thisSkip+=1 	   tapTestCnt+=1
+		recordTapSkip "$tapLine"
 		;;
 	    not\ ok\ ?(+([0-9])\ )\#\ [tT][oO][dD][oO]*)
 		let thisTodo+=1 thisRun+=1 tapTestCnt+=1; tapTestIsPrintTapOutput='true'
@@ -454,6 +482,7 @@ parseTapOutput()
 		# No tests planned means the TAP test is skipped completely. 
 		let thisTests+=1
 		let thisSkip+=1
+		recordTapSkip "${tapLine#1..0}"
 		;;
 	    +([0-9])..+([0-9]))
 		local startNum=${tapLine%%.*}
@@ -519,19 +548,19 @@ runTest()
 	echo >&2 "ERROR: Test file \"$1\" doesn't exist."
 	return
     fi
-    typeset -r testDirspec=$(dirname -- "$1")
-    typeset -r testFile=$(basename -- "$1")
-    typeset -r testFilespec=$(cd "$testDirspec" && echo "${PWD}/${testFile}") || { echo >&2 "ERROR: Cannot determine absolute filespec!"; exit 3; }
-    typeset -r testName=${testFile%.*}
+    local -r testDirspec=$(dirname -- "$1")
+    local -r testFile=$(basename -- "$1")
+    local -r testFilespec=$(cd "$testDirspec" && echo "${PWD}/${testFile}") || { echo >&2 "ERROR: Cannot determine absolute filespec!"; exit 3; }
+    local -r testName=${testFile%.*}
 
     # The setup script is not a test, silently skip it. 
     [ "$testFile" = "$vimLocalSetupScript" ] && return
 
-    typeset -r testOk=${testName}.ok
-    typeset -r testOut=${testName}.out
-    typeset -r testMsgok=${testName}.msgok
-    typeset -r testMsgout=${testName}.msgout
-    typeset -r testTap=${testName}.tap
+    local -r testOk=${testName}.ok
+    local -r testOut=${testName}.out
+    local -r testMsgok=${testName}.msgok
+    local -r testMsgout=${testName}.msgout
+    local -r testTap=${testName}.tap
 
     let cntTestFiles+=1
     pushd "$testDirspec" >/dev/null
@@ -550,7 +579,7 @@ runTest()
     local isPrintedHeader=
     [ $verboseLevel -gt 0 ] && printTestHeader "$testFile" "$testName"
 
-    # Default VIM arguments and options:
+    # Default Vim arguments and options:
     # -n		No swapfile. 
     # :set nomore	Suppress the more-prompt when the screen is filled with messages
     #			or output to avoid blocking. 
@@ -674,7 +703,7 @@ execute()
 
     executionOutput
     if [ "$vimArguments" ]; then
-	executionOutput 'Starting test run with these VIM options:'
+	executionOutput 'Starting test run with these Vim options:'
 	executionOutput "$vimExecutable $vimArguments"
     else
 	executionOutput 'Starting test run.'
@@ -688,12 +717,13 @@ execute()
 }
 report()
 {
-    [ $cntTodo -ge 1 ] && typeset -r todoNotification=", $cntTodo TODO" || typeset -r todoNotification=
-    [ "$isBailOut" ] && typeset -r bailOutNotification=' (aborted)' || typeset -r bailOutNotification=
+    [ $cntTodo -ge 1 ] && local -r todoNotification=", $cntTodo TODO" || local -r todoNotification=
+    [ "$isBailOut" ] && local -r bailOutNotification=' (aborted)' || local -r bailOutNotification=
     echo
     echo "$cntTestFiles $(makePlural $cntTestFiles 'file') with $cntTests $(makePlural $cntTests 'test')${bailOutNotification}; $cntSkip skipped, $cntRun run: $cntOk OK, $cntFail $(makePlural $cntFail 'failure'), $cntError $(makePlural $cntError 'error')${todoNotification}."
     [ "$listSkipped" ] && echo "Skipped tests: ${listSkipped%, }"
     [ "$listSkips" ] && echo "Tests with skips: ${listSkips%, }"
+    listSkipReasons
     [ "$listFailed" ] && echo "Failed tests: ${listFailed%, }"
     [ "$listError" ] && echo "Tests with errors: ${listError%, }"
     [ "$listTodo" ] && echo "TODO tests: ${listTodo%, }"
@@ -737,7 +767,7 @@ do
 			    vimExecutable=$1
 			    shift
 			    if ! type -P -- "$vimExecutable" >/dev/null; then
-				echo >&2 "ERROR: \"${vimExecutable}\" is not a VIM executable!"
+				echo >&2 "ERROR: \"${vimExecutable}\" is not a Vim executable!"
 				exit 2
 			    fi
 			    ;;
@@ -750,7 +780,7 @@ do
 			    fi
 			    ;;
 	--summaryonly)	    shift; isExecutionOutput='true';;
-	--verbose|-v)	    shift; let verboseLevel+=1;;
+	--verbose|-v)	    shift; let verboseLevel+=1; skipsRecord=;;
 	-d|--debug)	    shift; vimVariableOptionsValue="${vimVariableOptionsValue}debug,";;
 	--)		    shift; break;;
 	-*)		    { echo "ERROR: Unknown option \"${1}\"!"; echo; printShortUsage; } >&2; exit 2;;

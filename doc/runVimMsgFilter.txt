@@ -7,8 +7,8 @@ into *.msgresult. Used by the |runVimTests| testing framework.
 
 							 *runVimMsgFilter.vim*
 description			|runVimMsgFilter-description|
-usage	    			|runVimMsgFilter-usage|
-installation   			|runVimMsgFilter-installation|
+usage				|runVimMsgFilter-usage|
+installation			|runVimMsgFilter-installation|
 limitations			|runVimMsgFilter-limitations|
 known problems			|runVimMsgFilter-known-problems|
 todo				|runVimMsgFilter-todo|
@@ -109,7 +109,7 @@ First published version.
 Started development. 
 
 ==============================================================================
-Copyright: (C) 2009 by Ingo Karkat
+Copyright: (C) 2009 Ingo Karkat
 The VIM LICENSE applies to this script; see |copyright|. 
 
 Maintainer:	Ingo Karkat <ingo@karkat.de>

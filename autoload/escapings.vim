@@ -1,9 +1,33 @@
 " escapings.vim: Common escapings of filenames, and wrappers around new Vim 7.2
 " fnameescape() and shellescape() functions. 
 "
+" Copyright: (C) 2009-2010 by Ingo Karkat
+"   The VIM LICENSE applies to this script; see ':help copyright'. 
+"
 " Maintainer:	Ingo Karkat <ingo@karkat.de>
 "
 " REVISION	DATE		REMARKS 
+"	011	05-Apr-2010	Added escapings#shellcmdescape(). 
+"	010	12-Feb-2010	BUG: Emulation of shellescape(..., {special})
+"				escaped wrong characters (e.g. ' \<[') via
+"				fnameescape() and the escaping was done
+"				inconsistently though only 9 lines apart.
+"				Corrected and factored out the characters into
+"				l:specialShellescapeCharacters. 
+"	009	27-Aug-2009	BF: Characters '[{$' must not be escaped on
+"				Windows. Adapted pattern in
+"				escapings#fnameescape() and
+"				escapings#fnameunescape(). (This caused
+"				ingobuffer#MakeScratchBuffer() to create an "foo
+"				\[Scratch]" buffer on an unpatched Vim 7.1.) 
+"	008	19-Aug-2009	BF: escapings#shellescape() caused E118 on Vim
+"				7.1. The shellescape({string}) function exists
+"				since Vim 7.0.111, but shellescape({string},
+"				{special}) was only introduced with Vim 7.2. 
+"				Now calling the one-argument function if no
+"				{special} argument, and (crudely) emulating the
+"				two-argument function for Vim versions that only
+"				have the one-argument function. 
 "	007	27-May-2009	escapings#bufnameescape() now automatically
 "				expands a:filespec to the required full absolute
 "				filespec in the (default) full match mode. 
@@ -104,11 +128,11 @@ function! escapings#exescape( command )
 "* RETURN VALUES: 
 "   Escaped shell command to be passed to the !{cmd} or :r !{cmd} commands. 
 "*******************************************************************************
-if exists('*fnameescape')
-    return join(map(split(a:command, ' '), 'fnameescape(v:val)'), ' ')
-else
-    return escape(a:command, '\%#|' )
-endif
+    if exists('*fnameescape')
+	return join(map(split(a:command, ' '), 'fnameescape(v:val)'), ' ')
+    else
+	return escape(a:command, '\%#|' )
+    endif
 endfunction
 
 function! escapings#fnameescape( filespec )
@@ -124,12 +148,13 @@ function! escapings#fnameescape( filespec )
 "* RETURN VALUES: 
 "   Escaped filespec to be passed as a {file} argument to an ex command. 
 "*******************************************************************************
-if exists('*fnameescape')
-    return fnameescape(a:filespec)
-else
-    " Note: On Windows, backslash path separators mustn't be escaped. 
-    return escape(a:filespec, " \t\n*?[{`$%#'\"|!<" . (s:IsWindowsLike() ? '' : '\'))
-endif
+    if exists('*fnameescape')
+	return fnameescape(a:filespec)
+    else
+	" Note: On Windows, backslash path separators and some other Unix
+	" shell-specific characters mustn't be escaped. 
+	return escape(a:filespec, " \t\n*?`%#'\"|!<" . (s:IsWindowsLike() ? '' : '[{$\'))
+    endif
 endfunction
 
 function! escapings#fnameunescape( exfilespec, ... )
@@ -154,8 +179,8 @@ function! escapings#fnameunescape( exfilespec, ... )
 "* RETURN VALUES: 
 "   Unescaped, normal filespec. 
 "*******************************************************************************
-    let l:isMakeFullPath = (a:0 > 0 ? a:1 : 0)
-    return fnamemodify( a:exfilespec, ':gs+\\\([ \t\n*?[{`$%#''"|!<' . (s:IsWindowsLike() ? '' : '\') . ']\)+\1+' . (l:isMakeFullPath ? ':p' : ''))
+    let l:isMakeFullPath = (a:0 ? a:1 : 0)
+    return fnamemodify( a:exfilespec, ':gs+\\\([ \t\n*?`%#''"|!<' . (s:IsWindowsLike() ? '' : '[{$\') . ']\)+\1+' . (l:isMakeFullPath ? ':p' : ''))
 endfunction
 
 function! escapings#shellescape( filespec, ... )
@@ -178,18 +203,57 @@ function! escapings#shellescape( filespec, ... )
 "* RETURN VALUES: 
 "   Escaped filespec to be used in a :! command or inside a system() call. 
 "*******************************************************************************
-    let l:isSpecial = (a:0 > 0 ? a:1 : 0)
-if exists('*shellescape')
-    return shellescape(a:filespec, l:isSpecial)
-else
-    let l:escapedFilespec = (l:isSpecial ? escapings#fnameescape(a:filespec) : a:filespec)
-
-    if s:IsWindowsLike()
-	return '"' . l:escapedFilespec . '"'
+    let l:isSpecial = (a:0 ? a:1 : 0)
+    let l:specialShellescapeCharacters = "\n%#'!"
+    if exists('*shellescape')
+	if a:0
+	    if v:version < 702
+		" The shellescape({string}) function exists since Vim 7.0.111,
+		" but shellescape({string}, {special}) was only introduced with
+		" Vim 7.2. Emulate the two-argument function by (crudely)
+		" escaping special characters for the :! command. 
+		return shellescape((l:isSpecial ? escape(a:filespec, l:specialShellescapeCharacters) : a:filespec))
+	    else
+		return shellescape(a:filespec, l:isSpecial)
+	    endif
+	else
+	    return shellescape(a:filespec)
+	endif
     else
-	return "'" . l:escapedFilespec . "'"
+	let l:escapedFilespec = (l:isSpecial ? escape(a:filespec, l:specialShellescapeCharacters) : a:filespec)
+
+	if s:IsWindowsLike()
+	    return '"' . l:escapedFilespec . '"'
+	else
+	    return "'" . l:escapedFilespec . "'"
+	endif
     endif
-endif
+endfunction
+
+function! escapings#shellcmdescape( command )
+"******************************************************************************
+"* PURPOSE:
+"   Wrap the entire a:command in double quotes on Windows. 
+"   This is necessary when passing a command to cmd.exe which has arguments that
+"   are enclosed in double quotes, e.g. 
+"	""%SystemRoot%\system32\dir.exe" /B "%ProgramFiles%"". 
+"
+"* EXAMPLE:
+"   execute '!' escapings#shellcmdescape(escapings#shellescape($ProgramFiles .
+"   '/foobar/foo.exe', 1) . ' ' . escapings#shellescape(args, 1))
+"
+"* ASSUMPTIONS / PRECONDITIONS:
+"	? List of any external variable, control, or other element whose state affects this procedure.
+"* EFFECTS / POSTCONDITIONS:
+"	? List of the procedure's effect on each external variable, control, or other element.
+"* INPUTS:
+"   a:command	    Single shell command, with optional arguments. 
+"		    The shell command should already have been escaped via
+"		    shellescape(). 
+"* RETURN VALUES: 
+"   Escaped command to be used in a :! command or inside a system() call. 
+"******************************************************************************
+    return (s:IsWindowsLike() ? '"' . a:command . '"' : a:command)
 endfunction
 
 " vim: set sts=4 sw=4 noexpandtab ff=unix fdm=syntax :

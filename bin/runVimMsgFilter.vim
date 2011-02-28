@@ -7,7 +7,7 @@
 "     condition to not match if a previous message condition matched the message
 "     directly above; i.e. matches eat the following message, too.) 
 "
-" Copyright: (C) 2009 by Ingo Karkat
+" Copyright: (C) 2009 Ingo Karkat
 "   The VIM LICENSE applies to this script; see ':help copyright'. 
 "
 " Maintainer:	Ingo Karkat <ingo@karkat.de>

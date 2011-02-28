@@ -18,10 +18,16 @@
 ::    'unix.cmd' script. 
 ::  - runVimMsgFilter.vim, located in this script's directory. 
 ::
-::* Copyright: (C) 2009 by Ingo Karkat
+::* Copyright: (C) 2009-2011 Ingo Karkat
 ::   The VIM LICENSE applies to this script; see 'vim -c ":help copyright"'.  
 ::
 ::* REVISION	DATE		REMARKS 
+::  1.16.025	28-Feb-2011	Minor: Need to un-double ^ character in
+::				parseTapLineEnd; this failed the testdir-v.log
+::				self-test. 
+::				Align error handling of test dir without any
+::				tests with runVimTests.sh: Print error message
+::				instead of silently ignoring this. 
 ::  1.13.024	29-May-2009	BF: Also sourcing 'unix.cmd' if only optional
 ::				tools are not in %PATH%. 
 ::				BF: Now handling (most?) special characters
@@ -194,7 +200,7 @@ set vimGlobalSetupScript=%~dpn0Setup.vim
 if exist "%vimGlobalSetupScript%" set vimArguments=%vimArguments% -S "%vimGlobalSetupScript%"
 
 set verboseLevel=0
-set isExecutionOutput=1
+set isExecutionOutput=true
 set EXECUTIONOUTPUT=
 set isBailOut=
 
@@ -522,9 +528,16 @@ if not defined debug del "%skipsRecord%"
 
 ::------------------------------------------------------------------------------
 :runDir
+set isProcessedTestInDir=
 for %%f in (%~1*.vim) do (
+    set isProcessedTestInDir=true
     if not defined isBailOut call :runTest "%%f"
 )
+if not defined isProcessedTestInDir (
+    set /A cntError+=1
+    echo.ERROR: Test file "%~1*.vim" doesn't exist.
+)
+set isProcessedTestInDir=
 (goto:EOF)
 
 :processSuiteEntry
@@ -869,7 +882,7 @@ for /F "tokens=1,2 delims=." %%a in ("%~1") do set /A tapTestNum=%%b - %%a + 1
 :parseTapLineEnd
 if defined skipsRecord (
     if defined tapTestSkipReason (
-	echo."SKIP (tap): %tapTestSkipReason:~1,-1%"|sed -e "s/^\d034\(SKIP (tap): \) *\d034$/\1/" -e "s/^\d034\(SKIP (tap): .*[^ ]\) *\d034$/\1/" >> "%skipsRecord%"
+	echo."SKIP (tap): %tapTestSkipReason:~1,-1%"|sed -e "s/^\d034\(SKIP (tap): \) *\d034$/\1/" -e "s/^\d034\(SKIP (tap): .*[^ ]\) *\d034$/\1/" -e "s/\^\^/^/g" >> "%skipsRecord%"
 	set tapTestSkipReason=
     )
 )

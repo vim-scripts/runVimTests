@@ -32,6 +32,12 @@ approaches with great success.
 - VimTAP (by Meikel Brandmeyer), vimscript #2213
 - UT (by Luc Hermitte), http://code.google.com/p/lh-vim/wiki/UT
 
+RELATED WORKS
+- robot-vim by Matt Margolis, https://github.com/mrmargolis/robot-vim, allows
+  to TDD Vim scripts using Ruby scripts that launch Vim instances, pass text,
+  execute commands and then run assertions against the buffer text in Ruby. 
+- vspec by Kana Natsuno, vimscript #3012, allows to write tests BDD-style with
+  custom matchers, and is driven by a small Bash script. 
 
 EXAMPLE
 Specify an expected output, e.g. in file 'test001.ok'

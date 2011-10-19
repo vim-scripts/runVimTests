@@ -51,6 +51,13 @@ approaches with great success.
 - VimTAP (by Meikel Brandmeyer), vimscript #2213
 - UT (by Luc Hermitte), http://code.google.com/p/lh-vim/wiki/UT
 
+RELATED WORKS								     *
+
+- robot-vim by Matt Margolis, https://github.com/mrmargolis/robot-vim, allows
+  to TDD Vim scripts using Ruby scripts that launch Vim instances, pass text,
+  execute commands and then run assertions against the buffer text in Ruby. 
+- vspec by Kana Natsuno, vimscript #3012, allows to write tests BDD-style with
+  custom matchers, and is driven by a small Bash script. 
 
 DESCRIPTION					     *runVimTests-description*
 
@@ -285,8 +292,9 @@ given.
     SKIP(msgout)    Disregard the captured messages. 
     SKIP(tap)	    Disregard the TAP tests. 
     ERROR	    Signal an error in the test. 
-    BAILOUT!	    All testing should terminate; no further test scripts
-		    should be run. 
+    BAILOUT!	    All testing on the current level should terminate; no
+		    further test scripts from the current directory or test
+		    suite should be run. 
 Though you can simply use |:echo| to submit a signal, it is recommended to use
 the helper functions for |vimtest-signals|. Multiple signals can be given in
 no particular order. 
@@ -399,6 +407,21 @@ IDEAS							   *runVimTests-ideas*
 
 ==============================================================================
 HISTORY							 *runVimTests-history*
+
+1.18	19-Oct-2011
+- BUG: When everything is skipped and no TAP tests have been run, this would
+  be reported as a "No test results at all" error. 
+- CHG: Bail out only aborts from the current recursion level, i.e. it skips
+  further tests in the same directory, suite, or passed arguments, but not
+  testing entirely. Otherwise, a super-suite that includes individual suites
+  would be aborted by a single bail out. 
+
+1.17	04-Sep-2011
+- BUG: When runVimTests.sh is invoked via a relative filespec, $scriptDir is
+  relative and this makes the message output comparison (but not the
+  prerequisite check) fail with "ERROR (msgout): Evaluation of test messages
+  failed." when CWD has changed into $testDirspec. Thanks to Javier Rojas for
+  sending a patch. 
 
 1.16	28-Feb-2011
 - Minor bugfixes and tweaks to the self-test. 

@@ -22,6 +22,15 @@
 ::   The VIM LICENSE applies to this script; see 'vim -c ":help copyright"'.  
 ::
 ::* REVISION	DATE		REMARKS 
+::  1.18.026	19-Oct-2011	BUG: When everything is skipped and no TAP tests
+::				have been run, this would be reported as a "No
+::				test results at all" error. 
+::				CHG: Bail out only aborts from the current
+::				recursion level, i.e. it skips further tests in
+::				the same directory, suite, or passed arguments,
+::				but not testing entirely. Otherwise, a
+::				super-suite that includes individual suites
+::				would be aborted by a single bail out. 
 ::  1.16.025	28-Feb-2011	Minor: Need to un-double ^ character in
 ::				parseTapLineEnd; this failed the testdir-v.log
 ::				self-test. 
@@ -547,10 +556,12 @@ set argAsDirspec=%~1
 if not "%argAsDirspec:~-1%" == "\" set argAsDirspec=%argAsDirspec%\
 if exist "%argAsDirspec%" (
     call :runDir "%argAsDirspec%"
+    set isBailOut=
 ) else if "%argext%" == ".vim" (
     call :runTest "%arg%"
 ) else if exist "%arg%" (
     call :runSuite "%arg%"
+    set isBailOut=
 ) else (
     set /A cntError+=1
     (echo.ERROR: Suite file "%arg%" doesn't exist.)
@@ -684,6 +695,19 @@ if exist "%testTap%" (
 	set /A thisSkip+=1
     ) else (
 	call :parseTapOutput "%testTap%" "%testName%"
+    )
+)
+
+:: When everything is skipped and no TAP tests have been run, this would be
+:: reported as a "No test results at all" error. 
+if %thisTests% EQU 0 (
+    if defined isSkipOut (
+	if defined isSkipMsgout (
+	    if defined isSkipTap (
+		set /A thisTests=1
+		set /A thisSkip=1
+	    )
+	)
     )
 )
 

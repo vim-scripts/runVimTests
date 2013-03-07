@@ -1,6 +1,6 @@
 This is a mirror of http://www.vim.org/scripts/script.php?script_id=2565
 
-Every script writer knows how tedious it is to update a published script. In
+Every script writer knows how tedious it is to update a published plugin. In
 addition to the basic functionality, many corner cases (empty line, last line,
 etc.) and failures (invalid filename, nomodifiable buffer) need to be tested,
 and people use Vim on different platforms (Windows / Linux), UIs (Console /
@@ -9,14 +9,14 @@ There already exist multiple unit test plugins and assertion facilities [1],
 which are good for checking invariants and verifying side effect-free
 implementation functions, but it is still hard to verify the complete plugin
 functionality because custom commands and mappings typically change the buffer
-contents, open additional windows, or produce other side effects. 
+contents, open additional windows, or produce other side effects.
 
 This work aims to show that Vim, together with a shell script driver built
 around it, allows to write succinct, fully automated regression test suites
 through a combination of these verification methods:
-- Comparing buffer contents with a predefined nominal file. 
-- Matching actual Vim message output with a set of expected messages. 
-- Running unit tests or assertions inside Vim and evaluating the test results. 
+- Comparing buffer contents with a predefined nominal file.
+- Matching actual Vim message output with a set of expected messages.
+- Running unit tests or assertions inside Vim and evaluating the test results.
 
 With this testing framework, Test-Driven Development can finally be practiced
 for Vim plugins, too. If you have existing plugins, just add a couple of basic
@@ -24,7 +24,7 @@ test cases for a start. Soon, further updates and modifications can be done
 much more rapidly with reduced testing effort, and you can finally tackle that
 big refactoring that you've been wanting to do all the time, but were too
 afraid of because of the testing effort. The author has been following both
-approaches with great success. 
+approaches with great success.
 
 [1]
 - vimUnit (by Staale Flock), vimscript #1125
@@ -35,9 +35,9 @@ approaches with great success.
 RELATED WORKS
 - robot-vim by Matt Margolis, https://github.com/mrmargolis/robot-vim, allows
   to TDD Vim scripts using Ruby scripts that launch Vim instances, pass text,
-  execute commands and then run assertions against the buffer text in Ruby. 
+  execute commands and then run assertions against the buffer text in Ruby.
 - vspec by Kana Natsuno, vimscript #3012, allows to write tests BDD-style with
-  custom matchers, and is driven by a small Bash script. 
+  custom matchers, and is driven by a small Bash script.
 
 EXAMPLE
 Specify an expected output, e.g. in file 'test001.ok'
@@ -65,7 +65,7 @@ test summary:
 
 DESCRIPTION
 
-runVimTests implements a testing framework for Vim. 
+runVimTests implements a testing framework for Vim.
 
 Similar to the tests that are part of Vim's source distribution, each test
 consists of a testXXX.vim file which is executed in a a separate Vim instance.
@@ -77,8 +77,8 @@ If a testXXX.ok file is provided, the testXXX.vim should save a testXXX.out
 file at the end of its execution. The contents of the testXXX.out test file
 must be identical to the provided testXXX.ok file for the test to succeed. The
 test can either generate the test output itself, or start by editing a
-testXXX.in (or similar) file and doing modifications to it. 
-Use this method to test commands or mappings that modify buffer contents. 
+testXXX.in (or similar) file and doing modifications to it.
+Use this method to test commands or mappings that modify buffer contents.
 
 CAPTURED MESSAGES
 If a testXXX.msgok file is provided, the testXXX.vim file should generate Vim
@@ -89,11 +89,11 @@ is compiled into a Vim regexp and then matched against the captured messages.
 Each assertion can match exactly once, and all assertions must match in the
 same order in the captured Vim messages. (But there can be additional Vim
 messages before, after and in between matches, so that you can omit irrelevant
-or platform-specific messages from the testXXX.msgok file.) 
+or platform-specific messages from the testXXX.msgok file.)
 This method can verify that errors are reported correctly. Also use this
-method to test commands or mappings that print informational messages. 
+method to test commands or mappings that print informational messages.
 
-TAP UNIT TESTS	
+TAP UNIT TESTS
 If a testXXX.tap file exists at the end of a test execution, it is assumed to
 represent unit test output in the Test Anything Protocol [2], which is then
 parsed and incorporated into the test run. This method allows detailed
@@ -101,9 +101,9 @@ verification of custom commands, mappings as well as internal functions; the
 entire determination of the test result is done in Vim script. Each TAP unit
 test counts as one test, even though all those test results are produced by a
 single testXXX.vim file. If a plan announced more or less tests than what was
-found in the test output, the test is assumed to be erroneous. 
+found in the test output, the test is assumed to be erroneous.
 Use this method to test the internal implementation functions, or to verify
-things that can be checked easily with Vim script. 
+things that can be checked easily with Vim script.
 
 [2]
 web site: http://testanything.org,
@@ -113,21 +113,21 @@ TAP protocol for Vim: http://www.vim.org/scripts/script.php?script_id=2213
 
 USAGE
 
-A test run is started through the "runVimTests.(sh|cmd)" script: 
+A test run is started through the "runVimTests.(sh|cmd)" script:
     $ runVimTests [{options}] test001.vim|testsuite.txt|path/to/testdir/ [...]
 
-The tests are specified through these three methods, which can be combined: 
-- Directly specify the filespec of testXXX.vim test script file(s). 
+The tests are specified through these three methods, which can be combined:
+- Directly specify the filespec of testXXX.vim test script file(s).
 - Specify a directory; all *.vim files inside this directory (except for an
-  optional special _setup.vim file) will be used as test scripts. 
+  optional special _setup.vim file) will be used as test scripts.
 - A test suite is a text file containing (relative or absolute) filespecs to
   test scripts, directories or other test suites, one filespec per line.
-  (Commented lines start with #.) 
+  (Commented lines start with #.)
 
 After test execution, a summary is printed like this:
     20 files with 33 tests; 2 skipped, 27 run: 16 OK, 11 failures, 6 errors.
-    Tests with skips: test006
-    Skipped tests: test007
+    Tests with skips: test006.vim
+    Skipped tests: test007.vim
         2 SKIP (tap): Need 'autochdir' option
-    Failed tests: test002, test012, test014, test022, test032, test033
-    Tests with errors: test003, test013, test023, test033
+    Failed tests: test002.vim test012.vim test014.vim test022.vim test032.vim
+    Tests with errors: test003.vim test013.vim test023.vim test033.vim

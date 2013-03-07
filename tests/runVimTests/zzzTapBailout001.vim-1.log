@@ -7,8 +7,8 @@ not ok 2 - 1 == 2
 # Test '1 == 2' failed:
 # expected: '2'
 # but got:  '1'
-Bail out! It's so f...ed up!
+Bail out! It is so f...ed up!
 
 1 file with 3 tests (aborted); 0 skipped, 3 run: 2 OK, 1 failure, 1 error.
-Failed tests: zzzTapBailout001
-Tests with errors: zzzTapBailout001
+Failed tests: zzzTapBailout001.vim
+Tests with errors: zzzTapBailout001.vim

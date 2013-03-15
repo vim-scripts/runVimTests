@@ -18,10 +18,18 @@
 ::    'unix.cmd' script.
 ::  - runVimMsgFilter.vim, located in this script's directory.
 ::
-::* Copyright: (C) 2009-2012 Ingo Karkat
+::* Copyright: (C) 2009-2013 Ingo Karkat
 ::   The VIM LICENSE applies to this script; see 'vim -c ":help copyright"'.
 ::
 ::* REVISION	DATE		REMARKS
+::  1.21.031	06-Mar-2013	CHG: Drop comma in the lists of failed / skipped
+::				/ errored test and add .vim extension, so that
+::				the file list can be copy-and-pasted to another
+::				runVimTests invocation or :argedit'ed in Vim.
+::				CHG: Change default mode from "user" to
+::				"default"; this is what I use all the time,
+::				anyway, as the "user" mode is too susceptible to
+::				incompatible customizations.
 ::  1.21.030	10-Dec-2012	FIX: Prevent script errors when the error
 ::				message containing the full command line from a
 ::				failing vimtest#System() contains characters
@@ -255,7 +263,6 @@ if not "%arg%" == "" (
 	    (echo.)
 	    (goto:printShortUsage)
 	)
-	set vimArguments=-N -u NONE %vimArguments%
 	set vimMode=pure
 	shift /1
     ) else if /I "%arg%" == "--default" (
@@ -264,7 +271,6 @@ if not "%arg%" == "" (
 	    (echo.)
 	    (goto:printShortUsage)
 	)
-	set vimArguments=--cmd "set rtp=$VIM/vimfiles,$VIMRUNTIME,$VIM/vimfiles/after" -N -u NORC -c "set rtp&" %vimArguments%
 	set vimMode=default
 	shift /1
     ) else if /I "%arg%" == "--user" (
@@ -328,7 +334,12 @@ if "%~1" == "" (goto:printUsage)
 call :determineTerminalAndValidVimExecutable
 if not defined vimExecutable (exit /B 2)
 
-if not defined vimMode (set vimMode=user)
+if not defined vimMode (set vimMode=default)
+if "%vimMode%" == "pure" (
+    set vimArguments=-N -u NONE %vimArguments%
+) else if "%vimMode%" == "default" (
+    set vimArguments=--cmd "set rtp=$VIM/vimfiles,$VIMRUNTIME,$VIM/vimfiles/after" -N -u NORC -c "set rtp&" %vimArguments%
+)
 set vimVariableOptionsValue=%vimMode%,%vimVariableOptionsValue%
 set vimVariableOptionsValue=%vimVariableOptionsValue:~0,-1%
 set vimArguments=%vimArguments% --cmd "let %vimVariableOptionsName%='%vimVariableOptionsValue%'"
@@ -370,12 +381,12 @@ set todoNotification=& if %cntTodo% GEQ 1 set todoNotification=, %cntTodo% TODO
 set bailOutNotification=& if defined isBailOut set bailOutNotification= ^(aborted^)
 echo.
 echo.%cntTestFiles% file%pluralTestFiles% with %cntTests% test%pluralTests%%bailOutNotification%; %cntSkip% skipped, %cntRun% run: %cntOk% OK, %cntFail% failure%pluralFail%, %cntError% error%pluralError%%todoNotification%.
-if defined listSkipped (echo.Skipped tests: %listSkipped:~0,-2%)
-if defined listSkips (echo.Tests with skips: %listSkips:~0,-2%)
+if defined listSkipped (echo.Skipped tests: %listSkipped:~0,-1%)
+if defined listSkips (echo.Tests with skips: %listSkips:~0,-1%)
 call :listSkipReasons
-if defined listFailed (echo.Failed tests: %listFailed:~0,-2%)
-if defined listError (echo.Tests with errors: %listError:~0,-2%)
-if defined listTodo (echo.TODO tests: %listTodo:~0,-2%)
+if defined listFailed (echo.Failed tests: %listFailed:~0,-1%)
+if defined listError (echo.Tests with errors: %listError:~0,-1%)
+if defined listTodo (echo.TODO tests: %listTodo:~0,-1%)
 
 set /A cntAllProblems=%cntError% + %cntFail%
 if %cntAllProblems% NEQ 0 (exit /B 1) else (exit /B 0)
@@ -403,7 +414,8 @@ echo.    			but in nocompatible mode. Adds 'pure' to %vimVariableOptionsName%.
 echo.    -1^|--default	Start Vim only with default settings and plugins,
 echo.    			without loading user .vimrc and plugins.
 echo.    			Adds 'default' to %vimVariableOptionsName%.
-echo.    -2^|--user		^(Default:^) Start Vim with user .vimrc and plugins.
+echo.    -2^|--user		Start Vim with user .vimrc and plugins.
+echo.    			Adds 'user' to %vimVariableOptionsName%.
 echo.    --source filespec	Source filespec before test execution.
 echo.    --runtime filespec	Source filespec relative to ~/.vim. Can be used to
 echo.    			load the script-under-test when using --pure.
@@ -485,19 +497,19 @@ sed -n -e "1s/^\d034 \(Test.*\)$/%headerMessage% \1/p" -e "tx" -e "1c%headerMess
 (goto:EOF)
 
 :addToListSkipped
-echo.%listSkipped% | findstr /C:%1 >NUL || set listSkipped=%listSkipped%%~1, 
+echo.%listSkipped% | findstr /C:%1 >NUL || (set listSkipped=%listSkipped%%~1.vim )
 (goto:EOF)
 :addToListSkips
-echo.%listSkips% | findstr /C:%1 >NUL || set listSkips=%listSkips%%~1, 
+echo.%listSkips% | findstr /C:%1 >NUL || (set listSkips=%listSkips%%~1.vim )
 (goto:EOF)
 :addToListFailed
-echo.%listFailed% | findstr /C:%1 >NUL || set listFailed=%listFailed%%~1, 
+echo.%listFailed% | findstr /C:%1 >NUL || (set listFailed=%listFailed%%~1.vim )
 (goto:EOF)
 :addToListError
-echo.%listError% | findstr /C:%1 >NUL || set listError=%listError%%~1, 
+echo.%listError% | findstr /C:%1 >NUL || (set listError=%listError%%~1.vim )
 (goto:EOF)
 :addToListTodo
-echo.%listTodo% | findstr /C:%1 >NUL || set listTodo=%listTodo%%~1, 
+echo.%listTodo% | findstr /C:%1 >NUL || (set listTodo=%listTodo%%~1.vim )
 (goto:EOF)
 
 :echoOk
@@ -518,10 +530,10 @@ if not "%~2" == "" (
     set status=%status% ^(%~2^)
 )
 set sanitizedErrorMessage=%~3
-set sanitizedErrorMessage=%sanitizedErrorMessage:"=%
-set sanitizedErrorMessage=%sanitizedErrorMessage:'=%
-set sanitizedErrorMessage=%sanitizedErrorMessage:(=%
-set sanitizedErrorMessage=%sanitizedErrorMessage:)=%
+if defined sanitizedErrorMessage set sanitizedErrorMessage=%sanitizedErrorMessage:"=%
+if defined sanitizedErrorMessage set sanitizedErrorMessage=%sanitizedErrorMessage:'=%
+if defined sanitizedErrorMessage set sanitizedErrorMessage=%sanitizedErrorMessage:(=%
+if defined sanitizedErrorMessage set sanitizedErrorMessage=%sanitizedErrorMessage:)=%
 if "%sanitizedErrorMessage%" == "" (
     echo.%status%
 ) else (
@@ -808,7 +820,7 @@ if "%~1" == "BAILOUT!" (
 :parseMessageOutputForSignals
 if not exist "%testMsgout%" (
     set /A thisError+=1
-    call :echoError "" "Couldn't capture message output."
+    call :echoError "" "Could not capture message output."
     (goto:EOF)
 )
 for /F "tokens=2* delims= " %%s in ('grep -e "^runVimTests: " "%testMsgout%"') do call :parseSignal "%%~s" "%%~t"

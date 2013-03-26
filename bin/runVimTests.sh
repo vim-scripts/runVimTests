@@ -20,10 +20,13 @@
 # Copyright: (C) 2009-2013 Ingo Karkat
 #   The VIM LICENSE applies to this script; see 'vim -c ":help copyright"'.
 #
-# FILE_SCCS = "@(#)runVimTests.sh	1.21.015	(06-Mar-2013)	runVimTests";
+# FILE_SCCS = "@(#)runVimTests.sh	1.23.016	(25-Mar-2013)	runVimTests";
 #
 # REVISION	DATE		REMARKS
-#  1.21.031	06-Mar-2013	CHG: Drop comma in the lists of failed / skipped
+#  1.23.016	25-Mar-2013	Add support for Mac OS X; thanks to Israel
+#				Chauca Fuentes for sending a pull request.
+#				Add support for BSD.
+#  1.21.015	06-Mar-2013	CHG: Drop comma in the lists of failed / skipped
 #				/ errored test and add .vim extension, so that
 #				the file list can be copy-and-pasted to another
 #				runVimTests invocation or :argedit'ed in Vim.
@@ -110,11 +113,26 @@
 # (?(pattern-list), !(pattern-list), ...) in Bash.
 shopt -qs extglob
 
+# https://github.com/dominictarr/JSON.sh/pull/2#issuecomment-2526006
+readlinkEmulation()
+{
+    cd "$(dirname $1)"
+    local filename=$(basename $1)
+    if [ -h "$filename" ]; then
+	readlinkEmulation "$(readlink $filename)"
+    else
+	printf %s "$(pwd -P)/${filename}"
+    fi
+}
+readlinkWrapper()
+{
+    readlink -nf "$@" 2>/dev/null || readlinkEmulation "$@"
+}
 initialize()
 {
     [ ${BASH_VERSINFO[0]} -ge 3 ] || { echo >&2 "ERROR: This script requires Bash 3.0 or higher!"; exit 2; }
 
-    readonly scriptDir=$([ "${BASH_SOURCE[0]}" ] && absoluteScriptFile="$(readlink -nf -- "${BASH_SOURCE[0]}")" && dirname -- "$absoluteScriptFile" || exit 3)
+    readonly scriptDir=$([ "${BASH_SOURCE[0]}" ] && absoluteScriptFile="$(readlinkWrapper "${BASH_SOURCE[0]}")" && dirname -- "$absoluteScriptFile" || exit 3)
     [ -d "$scriptDir" ] || { echo >&2 "ERROR: Cannot determine script directory!"; exit 3; }
 
     skipsRecord=${TEMP:-/tmp}/skipsRecord.txt.$$
@@ -257,7 +275,7 @@ echoFail()
 listSkipReasons()
 {
     [ ! "$skipsRecord" -o $cntSkip -eq 0 -o ! -f "$skipsRecord" ] && return
-    sort --ignore-case -- "$skipsRecord" | uniq --ignore-case --count
+    sort --ignore-case -- "$skipsRecord" | uniq -i -c | sed 's/^ \{4\}/ /'
     case "$DEBUG" in *skipsRecord*) ;; *) rm -- "$skipsRecord";; esac
 }
 
@@ -367,7 +385,11 @@ printTestHeader()
     # the test's synopsis in the test header. Otherwise, just print the test
     # name. Limit the test header to one unwrapped output line, i.e. truncate to
     # 80 characters.
-    sed -n -e "1s/^\\d034 \\(Test.*\\)$/${headerMessage} \\1/p" -e 'tx' -e "1c${headerMessage}" -e ':x' -- "$1" | sed '/^.\{80,\}/s/\(^.\{,76\}\).*$/\1.../'
+    sed -n "
+	1s/^\" \\(Test.*\\)$/${headerMessage} \\1/p
+	t
+	1c\\
+${headerMessage}" "$1" | sed '/^.\{80\}/s/\(^.\{1,76\}\).*$/\1.../'
 }
 
 parseSignal()
@@ -449,7 +471,7 @@ compareMessages()
 	echoError 'msgout' 'Evaluation of test messages failed.'
 	return
     fi
-    local -r evaluationResult=$(sed -n '1s/^\([A-Z][A-Z]*\).*/\1/p' -- "$testMsgresult")
+    local -r evaluationResult=$(sed -n '1s/^\([A-Z][A-Z]*\).*/\1/p' "$testMsgresult")
     local isPrintEvaluation='true'
     case "$evaluationResult" in
 	OK)	let thisOk+=1
@@ -537,8 +559,26 @@ parseTapOutput()
 	    cat -- "$1"
 	else
 	    [ "$tapTestIsPrintTapOutput" ] && printTestHeader "$testFile" "$testName"
-	    local -r tapPrintTapOutputSedPattern='^not ok\|^ok \([0-9]\+ \)\?# [tT][oO][dD][oO]\|^Bail out!'
-	    cat -- "$1" | sed -n -e "\${/^#/H;x;/${tapPrintTapOutputSedPattern}/p}" -e "/${tapPrintTapOutputSedPattern}/{x;/${tapPrintTapOutputSedPattern}/p;b}" -e "/^#/{H;b}" -e "x;/${tapPrintTapOutputSedPattern}/p" -e "/^Bail out!/q"
+	    local -r tapPrintTapOutputSedPattern='^not ok|^ok ([0-9]+ )?# [tT][oO][dD][oO]|^Bail out!'
+	    sed -E -n "
+		\${
+		    /^#/H
+		    x
+		    /${tapPrintTapOutputSedPattern}/p
+		}
+		/${tapPrintTapOutputSedPattern}/{
+		    x
+		    /${tapPrintTapOutputSedPattern}/p
+		    b
+		}
+		/^#/{
+		    H
+		    b
+		}
+		x
+		/${tapPrintTapOutputSedPattern}/p
+		/^Bail out!/q
+		" "$1"
 	fi
     fi
 

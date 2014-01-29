@@ -30,14 +30,20 @@ approaches with great success.
 - vimUnit (by Staale Flock), vimscript #1125
 - tAssert (by Tom Link), vimscript #1730
 - VimTAP (by Meikel Brandmeyer), vimscript #2213
+- spec.vim (by Tom Link), vimscript #2580
 - UT (by Luc Hermitte), http://code.google.com/p/lh-vim/wiki/UT
+- vim-unittest (by h1mesuke), https://github.com/h1mesuke/vim-unittest
+- Ultimate Test Utility (by Kevin Biskar), vimscript #4724 is a pure Vimscript
+  implementation providing various test grouping and assertion functions.
 
 RELATED WORKS
-- robot-vim by Matt Margolis, https://github.com/mrmargolis/robot-vim, allows
+- robot-vim (https://github.com/mrmargolis/robot-vim) by Matt Margolis allows
   to TDD Vim scripts using Ruby scripts that launch Vim instances, pass text,
   execute commands and then run assertions against the buffer text in Ruby.
-- vspec by Kana Natsuno, vimscript #3012, allows to write tests BDD-style with
+- vspec (vimscript #3012) by Kana Natsuno allows to write tests BDD-style with
   custom matchers, and is driven by a small Bash script.
+- Vader (vimscript #4832) by Junegunn Choi implements BDD-style testing from
+  within Vim via a test script in a custom syntax.
 
 EXAMPLE
 Specify an expected output, e.g. in file 'test001.ok'
@@ -64,7 +70,6 @@ test summary:
 
 
 DESCRIPTION
-
 runVimTests implements a testing framework for Vim.
 
 Similar to the tests that are part of Vim's source distribution, each test
@@ -89,7 +94,8 @@ is compiled into a Vim regexp and then matched against the captured messages.
 Each assertion can match exactly once, and all assertions must match in the
 same order in the captured Vim messages. (But there can be additional Vim
 messages before, after and in between matches, so that you can omit irrelevant
-or platform-specific messages from the testXXX.msgok file.)
+or platform-specific messages from the testXXX.msgok file.) For details, see
+runVimMsgFilter.
 This method can verify that errors are reported correctly. Also use this
 method to test commands or mappings that print informational messages.
 
@@ -110,9 +116,11 @@ web site: http://testanything.org,
 original implementation: http://search.cpan.org/~petdance/TAP-1.00/TAP.pm,
 TAP protocol for Vim: http://www.vim.org/scripts/script.php?script_id=2213
 
+A test causes an error if none of these ok-files exist for a test, and no
+testXXX.tap file was generated (so actually no verification is possible), or
+if the test execution does not produce the corresponding output files.
 
 USAGE
-
 A test run is started through the "runVimTests.(sh|cmd)" script:
     $ runVimTests [{options}] test001.vim|testsuite.txt|path/to/testdir/ [...]
 
@@ -123,6 +131,10 @@ The tests are specified through these three methods, which can be combined:
 - A test suite is a text file containing (relative or absolute) filespecs to
   test scripts, directories or other test suites, one filespec per line.
   (Commented lines start with #.)
+
+The script returns 0 if all tests were successful, 1 if any errors or failures
+occurred, 2 if it wasn't invoked correctly (i.e. bad or missing command-line
+arguments) or prerequisites weren't met, 3 in case of an internal error.
 
 After test execution, a summary is printed like this:
     20 files with 33 tests; 2 skipped, 27 run: 16 OK, 11 failures, 6 errors.

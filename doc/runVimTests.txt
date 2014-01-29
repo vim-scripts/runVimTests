@@ -50,6 +50,8 @@ approaches with great success.
 - spec.vim (by Tom Link), vimscript #2580
 - UT (by Luc Hermitte), http://code.google.com/p/lh-vim/wiki/UT
 - vim-unittest (by h1mesuke), https://github.com/h1mesuke/vim-unittest
+- Ultimate Test Utility (by Kevin Biskar), vimscript #4724 is a pure Vimscript
+  implementation providing various test grouping and assertion functions.
 
 RELATED WORKS								     *
 
@@ -218,6 +220,14 @@ more. See |vimtest-usage| for a full reference.)
 Their use is not required, but they simplify the writing of tests.
 
 The VimTAP plugin (vimscript #2213) needs to be installed separately.
+The examples here use the API of version 0.3.0; version 0.4.0 of the plugin
+introduced compatibility-breaking changes, which I don't like; the functions
+are now cumbersome to use, and the added commands don't offer much
+convenience, but pollute the test environment in my opinion. If you like, you
+can use my own fork of version 0.3.0:
+    https://github.com/inkarkat/vimtap
+Note that nothing prevents you from using the latest, original version for
+your own tests.
 
 The tests/ subdirectory contains example test suites and a self-test of the
 test framework. For a simple sanity check, execute: >
@@ -246,6 +256,9 @@ These binaries must be accessible through %PATH%. Alternatively, you can just
 make accessible an Windows shell script named "unix.cmd", which is then
 sourced in order to modify %PATH% to include the Unix tools. This way, you can
 avoid to permanently place these Unix tools into %PATH%.
+
+- Requires the |ingo-library.vim| plugin (vimscript #4433), version 1.012 or
+  higher, only for Vim 7.0 and 7.1.
 
 ==============================================================================
 FRAMEWORK					       *runVimTests-framework*
@@ -406,6 +419,21 @@ or via the issue tracker at https://github.com/inkarkat/runVimTests/issues
 
 ==============================================================================
 HISTORY							 *runVimTests-history*
+
+1.24	RELEASEME
+- Don't clobber the default viminfo file with the test results; use a special
+  ~/.vimtestinfo value for the actual test run (to enable tests that use
+  viminfo), and no viminfo for the checking and processing steps.
+- Show _all_ global, non-test-specific Vim arguments in the initial message.
+- Convert the filespec passed to --source to an absolute one; relative ones
+  only work when the test driver script doesn't cd into a different directory.
+- BUG: runVimTestsSetup.vim isn't sourced on Unix when invoked through
+  runVimTests.sh (with the .sh file extension). Reported by Ryan Carney.
+  https://github.com/inkarkat/runVimTests/issues/6
+- Replace the distributed escapings.vim autoload script with an optional
+  dependency (for Vim 7.0 and 7.1) to the ingo-library. *** You need to
+  separately install ingo-library (vimscript #4433) version 1.012 (or higher)!
+  ***
 
 1.23	25-Mar-2013
 - Add support for Mac OS X; thanks to Israel Chauca Fuentes for sending a pull
